@@ -1,18 +1,38 @@
 #include<stdio.h>
 #include<pthread.h>
 #include <unistd.h>
-
 // jantar dos canibais
+// mutex implementation with Peterson's algorithm
 
-//#define N 5 // numero de canibais
-//#define M 3 // numero de panelas
+const int c_nNumCanibais   = 5; // numero de canibais
+const int c_nNumMaxPanelas = 3; // numero de panelas
+const int c_nLevelLength   = c_nNumCanibais + c_nNumMaxPanelas;
+const int c_nWaitingLenght = c_nLevelLength - 1;
+      int g_nNumPanelas    = 0; // numero de panelas disponiveis
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex para acesso a regiao critica
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER; // condicao para acordar o cozinheiro
+volatile int g_arrLevel  [c_nLevelLength];
+volatile int g_arrWaiting[c_nWaitingLenght];
 
-int NumCanibais   = 0; // numero de canibais
-int NumMaxPanelas = 0; // numero de panelas
-int NumPanelas    = 0; // numero de panelas disponiveis
+//pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex para acesso a regiao critica
+//pthread_cond_t  cond  = PTHREAD_COND_INITIALIZER; // condicao para acordar o cozinheiro
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+
+void lock(int task_id) {
+        for (int l = 0; l < c_nWaitingLenght; l++) {
+            level[task_id] = l;
+            waiting[l] = task_id;
+            for (k = 0; k < N; k++) {
+                while (k != task_id && level[k] >= l && waiting[l] == task_id);
+            }
+        }
+}
+unlock(task_id) {
+        level[task_id] = 0;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
 
 void *cozinheiro(void *arg);
 void *canibal(void *arg);

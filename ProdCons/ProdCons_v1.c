@@ -10,6 +10,45 @@
 #define COLOR_GREEN "\x1b[32m"
 #define COLOR_RESET "\x1b[0m"
 
+const int g_nLevelLength   = CONSUMERS + QUEUE_LENGTH;
+const int g_nWaitingLenght = CONSUMERS + QUEUE_LENGTH - 1;
+
+volatile int g_arrLevel  [CONSUMERS + QUEUE_LENGTH];
+volatile int g_arrWaiting[CONSUMERS + QUEUE_LENGTH - 1];
+
+void Mutex_Unlock(int task_id);
+void Mutex_Lock  (int task_id);
+
+void Mutex_Unlock(int task_id)
+{
+    g_arrLevel[task_id] = 0;
+}
+
+void Mutex_Lock(int task_id)
+{
+    for (int l = 0; l < g_nWaitingLenght; l++)
+    {
+        g_arrLevel[task_id] = l;
+        g_arrWaiting[l] = task_id;
+        for (int k = 0; k < g_nLevelLength; k++)
+        {
+            while (k != task_id && g_arrLevel[k] >= l && g_arrWaiting[l] == task_id);
+        }
+    }
+}
+
+void Mutex_Init()
+{
+    for (int i = 0; i < g_nLevelLength; i++)
+    {
+        g_arrLevel[i] = 0;
+    }
+    for (int i = 0; i < g_nWaitingLenght; i++)
+    {
+        g_arrWaiting[i] = 0;
+    }
+}
+
 typedef struct queue_s
 {
     int  nCapacity;
@@ -81,26 +120,26 @@ void QueuePrint(struct queue_s * q)
 
 ///////////////////////////////////////////
 TQueue          g_Queue;
-pthread_mutex_t mtx;
 
 void *TaskConsumer(void *arg)
 {
     TQueue *Queue = &g_Queue;
     int nSuccess;
+    int nId = (int) arg;
     while(1)
     {
-        pthread_mutex_lock(&mtx);
+        Mutex_Lock(nId);
         nSuccess = Queue->Consume(Queue);
         Queue->Print(Queue);
         if (nSuccess)
         {
-            printf(COLOR_GREEN "TaskConsumer: Thread: %d consume a resource\n" COLOR_RESET, (int*) arg);
+            printf(COLOR_GREEN "TaskConsumer: Thread: %d consume a resource\n" COLOR_RESET, nId);
         } else
         {
-            printf(COLOR_RED "TaskConsumer: Thread: %d couldn't consume the resource\n" COLOR_RESET, (int*) arg);
+            printf(COLOR_RED "TaskConsumer: Thread: %d couldn't consume the resource\n" COLOR_RESET, nId);
         }
-        pthread_mutex_unlock(&mtx);
-        usleep(10000);
+        Mutex_Unlock(nId);
+        usleep(1);
     }
 }
 
@@ -108,20 +147,21 @@ void *TaskProducer(void *arg)
 {
     TQueue *Queue = &g_Queue;
     int nSuccess;
+    int nId = (int) arg;
     while(1)
     {
-        pthread_mutex_lock(&mtx);
+        Mutex_Lock(nId);
         nSuccess = Queue->Insert(Queue);
         Queue->Print(Queue);
         if (nSuccess)
         {
-            printf( COLOR_GREEN "TaskProducer: Thread: %d insert a resource\n" COLOR_RESET, (int*) arg);
+            printf( COLOR_GREEN "TaskProducer: Thread: %d insert a resource\n" COLOR_RESET, nId);
         } else
         {
-            printf(COLOR_RED "TaskProducer: Thread: %d couldn't insert a resource\n" COLOR_RESET, (int*) arg);
+            printf(COLOR_RED "TaskProducer: Thread: %d couldn't insert a resource\n" COLOR_RESET, nId);
         }
-        pthread_mutex_unlock(&mtx);
-        usleep(10000);
+        Mutex_Unlock(nId);
+        usleep(1);
     }
 }
 
@@ -135,7 +175,7 @@ int main(){
     pthread_t producers [PRODUCERS];
     pthread_t consumers [CONSUMERS];
 
-    pthread_mutex_init(&mtx, NULL);
+    Mutex_Init();
 
     for (int i = 0; i < CONSUMERS; i++)
         pthread_create(&consumers[i], NULL, TaskConsumer, (void*)nThreadID++);

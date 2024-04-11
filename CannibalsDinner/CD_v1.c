@@ -1,111 +1,129 @@
 #include<stdio.h>
 #include<pthread.h>
 #include <unistd.h>
+#include <malloc.h>
 // jantar dos canibais
 // mutex implementation with Peterson's algorithm
 
-const int c_nNumCanibais   = 5; // numero de canibais
-const int c_nNumMaxPanelas = 3; // numero de panelas
-const int c_nLevelLength   = c_nNumCanibais + c_nNumMaxPanelas;
-const int c_nWaitingLenght = c_nLevelLength - 1;
-      int g_nNumPanelas    = 0; // numero de panelas disponiveis
+int g_nNumCanibais   = 0; // numero de canibais
+int g_nNumMaxPorcoes = 0; // numero de panelas
+int g_nLevelLength   = 0; // c_nNumCanibais + c_nNumMaxPanelas;
+int g_nWaitingLenght = 0; // c_nLevelLength - 1;
+int g_nNumPorcoes    = 0; // numero de panelas disponiveis
 
-volatile int g_arrLevel  [c_nLevelLength];
-volatile int g_arrWaiting[c_nWaitingLenght];
+volatile int *g_arrLevel;
+volatile int *g_arrWaiting;
 
-//pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex para acesso a regiao critica
-//pthread_cond_t  cond  = PTHREAD_COND_INITIALIZER; // condicao para acordar o cozinheiro
-
+pthread_t Cheff_t;
 // ---------------------------------------------------------------------------------------------------------------------
-
-
-void lock(int task_id) {
-        for (int l = 0; l < c_nWaitingLenght; l++) {
-            level[task_id] = l;
-            waiting[l] = task_id;
-            for (k = 0; k < N; k++) {
-                while (k != task_id && level[k] >= l && waiting[l] == task_id);
-            }
-        }
-}
-unlock(task_id) {
-        level[task_id] = 0;
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-
-void *cozinheiro(void *arg);
-void *canibal(void *arg);
+void Mutex_Init  ();
+void Mutex_Unlock(int task_id);
+void Mutex_Lock  (int task_id);
+void *Cheff      (void *arg);
+void *Cannibal   (void *arg);
 
 int main(int argc, char **argv)
 {
     int success = 0;
     while (!success)
     {
-        printf("Insira a quantidade de canibais: ");
-        success = scanf("%d", &NumCanibais);
+        printf("Insira a quantidade de Cannibals: ");
+        success = scanf("%d", &g_nNumCanibais);
         while (getchar() != '\n');
     }
 
     success = 0;
     while (!success)
     {
-        printf("Insira a quantidade de panelas suportada pela mesa de jantar: ");
-        success = scanf("%d", &NumMaxPanelas);
+        printf("Insira a quantidade de porcoes suportada pela mesa de jantar: ");
+        success = scanf("%d", &g_nNumMaxPorcoes);
         while (getchar() != '\n');
     }
 
-    pthread_t canibais[NumCanibais], cozinheiro_t;
+    // inicia com o numero maximo de porcoes
+    g_nNumPorcoes    = g_nNumMaxPorcoes;
+    g_nLevelLength   = g_nNumCanibais + g_nNumMaxPorcoes;
+    g_nWaitingLenght = g_nLevelLength - 1;
+
+    g_arrLevel   = (int *) malloc(g_nLevelLength * sizeof(int));
+    g_arrWaiting = (int *) malloc(g_nWaitingLenght * sizeof(int));
+
+    // Inicia o mutex
+    Mutex_Init();
+
+    pthread_t Cannibals[g_nNumCanibais];
     int i;
-    pthread_create(&cozinheiro_t, NULL, cozinheiro, NULL);
-    for(i = 0; i < NumCanibais; i++)
+//    pthread_create(&Cheff_t, NULL, Cheff, NULL); // cozinheiro só deve ser acordado quando nao houverem mais porcoes
+
+    for(i = 0; i < g_nNumCanibais; i++)
     {
-        pthread_create(&canibais[i], NULL, canibal, (void *)i);
+        pthread_create(&Cannibals[i], NULL, Cannibal, (void *) i);
     }
-    pthread_join(cozinheiro_t, NULL);
-    for(i = 0; i < NumCanibais; i++)
+//    pthread_join(cozinheiro_t, NULL);
+    for(i = 0; i < g_nNumCanibais; i++)
     {
-        pthread_join(canibais[i], NULL);
+        pthread_join(Cannibals[i], NULL);
     }
     return 0;
 }
 
-void *canibal(void *arg)
+void *Cannibal(void *arg)
 {
     int id = (int)arg;
     while(1)
     {
-        pthread_mutex_lock(&mutex);
-        while(NumPanelas == 0)
+        Mutex_Lock(id);
+        if(g_nNumPorcoes == 0)
         {
             printf("Canibal %d esperando\n", id);
-            pthread_cond_wait(&cond, &mutex);
+            // acordar Cheff
+            pthread_create(&Cheff_t, NULL, Cheff, NULL);
+            pthread_join(Cheff_t, NULL);
+            Mutex_Unlock(id);
+        } else {
+            g_nNumPorcoes--;
+            printf("Canibal %d comendo\n", id);
+            Mutex_Unlock(id);
+            usleep(1);
         }
-        NumPanelas--;
-        printf("Canibal %d comendo\n", id);
-        pthread_mutex_unlock(&mutex);
-        usleep(1);
-        pthread_mutex_lock(&mutex);
-        NumPanelas++;
-        printf("Canibal %d terminou de comer\n", id);
-        pthread_cond_signal(&cond);
-        pthread_mutex_unlock(&mutex);
     }
 }
 
-void *cozinheiro(void *arg)
+void *Cheff(void *arg)
 {
-    while(1)
+    if (g_nNumPorcoes == 0)
     {
-        pthread_mutex_lock(&mutex);
-        while(NumPanelas != NumMaxPanelas)
+        printf("Cozinheiro enchendo a mesa\n");
+        g_nNumPorcoes = g_nNumMaxPorcoes;
+    }
+}
+
+void Mutex_Unlock(int task_id)
+{
+    g_arrLevel[task_id] = 0;
+}
+
+void Mutex_Lock(int task_id)
+{
+    for (int l = 0; l < g_nWaitingLenght; l++)
+    {
+        g_arrLevel[task_id] = l;
+        g_arrWaiting[l] = task_id;
+        for (int k = 0; k < g_nLevelLength; k++)
         {
-            printf("Cozinheiro esperando\n");
-            pthread_cond_wait(&cond, &mutex);
+            while (k != task_id && g_arrLevel[k] >= l && g_arrWaiting[l] == task_id);
         }
-        printf("Cozinheiro enchendo panelas\n");
-        NumPanelas = NumMaxPanelas;
-        pthread_cond_broadcast(&cond);
-        pthread_mutex_unlock(&mutex);
+    }
+}
+
+void Mutex_Init()
+{
+    for (int i = 0; i < g_nLevelLength; i++)
+    {
+        g_arrLevel[i] = 0;
+    }
+    for (int i = 0; i < g_nWaitingLenght; i++)
+    {
+        g_arrWaiting[i] = 0;
     }
 }

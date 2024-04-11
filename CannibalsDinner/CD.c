@@ -2,8 +2,8 @@
 #include<pthread.h>
 #include <unistd.h>
 #include <malloc.h>
-// jantar dos canibais
-// mutex implementation with Peterson's algorithm
+// Jantar dos Canibais
+// Implementacao mutex com algoritmo de Peterson
 
 int g_nNumCanibais   = 0; // numero de canibais
 int g_nNumMaxPorcoes = 0; // numero de panelas
@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     g_nLevelLength   = g_nNumCanibais + g_nNumMaxPorcoes;
     g_nWaitingLenght = g_nLevelLength - 1;
 
-    g_arrLevel   = (int *) malloc(g_nLevelLength * sizeof(int));
+    g_arrLevel   = (int *) malloc(g_nLevelLength   * sizeof(int));
     g_arrWaiting = (int *) malloc(g_nWaitingLenght * sizeof(int));
 
     // Inicia o mutex
@@ -53,13 +53,11 @@ int main(int argc, char **argv)
 
     pthread_t Cannibals[g_nNumCanibais];
     int i;
-//    pthread_create(&Cheff_t, NULL, Cheff, NULL); // cozinheiro só deve ser acordado quando nao houverem mais porcoes
 
     for(i = 0; i < g_nNumCanibais; i++)
     {
         pthread_create(&Cannibals[i], NULL, Cannibal, (void *) i);
     }
-//    pthread_join(cozinheiro_t, NULL);
     for(i = 0; i < g_nNumCanibais; i++)
     {
         pthread_join(Cannibals[i], NULL);
@@ -75,14 +73,14 @@ void *Cannibal(void *arg)
         Mutex_Lock(id);
         if(g_nNumPorcoes == 0)
         {
-            printf("Canibal %d esperando\n", id);
+            printf("Acabaram as porcoes! Canibal %d chamou o cozinheiro\n", id);
             // acordar Cheff
             pthread_create(&Cheff_t, NULL, Cheff, NULL);
             pthread_join(Cheff_t, NULL);
             Mutex_Unlock(id);
         } else {
             g_nNumPorcoes--;
-            printf("Canibal %d comendo\n", id);
+            printf("Canibal %d comendo...\n %d porcoes disponiveis\n", id, g_nNumPorcoes);
             Mutex_Unlock(id);
             usleep(1);
         }
@@ -93,8 +91,9 @@ void *Cheff(void *arg)
 {
     if (g_nNumPorcoes == 0)
     {
-        printf("Cozinheiro enchendo a mesa\n");
+        printf("Cozinheiro acordou! Enchendo a mesa...\n ");
         g_nNumPorcoes = g_nNumMaxPorcoes;
+        printf("Cozinheiro terminou de colocar a mesa e voltou a dormir...\n ");
     }
 }
 

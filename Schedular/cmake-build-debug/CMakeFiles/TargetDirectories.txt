@@ -1,0 +1,3 @@
+/home/ez/Documentos/Obsidian/code/C/SisOps_T1/Schedular/cmake-build-debug/CMakeFiles/Schedular.dir
+/home/ez/Documentos/Obsidian/code/C/SisOps_T1/Schedular/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/ez/Documentos/Obsidian/code/C/SisOps_T1/Schedular/cmake-build-debug/CMakeFiles/rebuild_cache.dir
